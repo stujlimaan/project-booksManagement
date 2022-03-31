@@ -1,6 +1,7 @@
 const BookModel = require("../models/booksModel");
 const User = require("../models/userModel");
 const Review = require("../models/reviewModel");
+const moment = require("moment");
 
 //creating books start
 const createBook = async function (req, res) {
@@ -58,12 +59,27 @@ const createBook = async function (req, res) {
         .status(400)
         .send({ status: false, msg: "please provide user subcategory" });
     }
+    if (subcategory.length == 0)
+      return res
+        .status(400)
+        .send({
+          status: false,
+          message: "Please provide proper subcategory to create.",
+        });
 
     if (!releasedAt) {
       return res
         .status(400)
         .send({ status: false, msg: "please provide address" });
     }
+    let validity = moment(releasedAt, "YYYY-MM-DD", true).isValid();
+    if (!validity)
+      return res
+        .status(400)
+        .send({
+          status: false,
+          message: "input a valid date in YYYY-MM-DD format.",
+        });
 
     if (!userId) {
       return res
@@ -77,8 +93,19 @@ const createBook = async function (req, res) {
       return res.status(404).send({ status: false, msg: "user not found" });
     }
 
-    let book = await BookModel.create(data);
-    res.status(201).send({ status: true, data: book });
+    let bookData = { title, excerpt, ISBN, category, releasedAt, userId };
+    if (subcategory) {
+      if (Array.isArray(subcategory)) {
+        bookData["subcategory"] = [...subcategory];
+      }
+      if (Object.prototype.toString.call(subcategory) === ["object string"]) {
+        bookData["subcategory"] = [subcategory];
+      }
+    }
+    let book = await BookModel.create(bookData);
+    res
+      .status(201)
+      .send({ status: true, message: "successfully book created", data: book });
   } catch (err) {
     return res.status(500).send({ status: false, msg: err.message });
   }
@@ -102,9 +129,13 @@ const getBook = async function (req, res) {
         obj["category"] = category;
       }
 
-      if (subcategory) {
-        obj["subcategory"] = subcategory;
-      }
+      // if (subcategory) {
+      //   obj["subcategory"] = subcategory;
+      // }
+      if(subcategory){
+        const subArr=subcategory.trim().split(',').map(sub=>sub.trim());
+        obj['subcategory']={$all:subArr}
+    }
       console.log(obj);
       const filterQ = await BookModel.find(obj)
         .select({
@@ -249,12 +280,10 @@ const updateBook = async function (req, res) {
 
     let checkDeleted = await BookModel.find({ _id: bookId, isDeleted: true });
     if (checkDeleted.length > 0) {
-      return res
-        .status(200)
-        .send({
-          status: true,
-          message: "already deleted and you can not update",
-        });
+      return res.status(200).send({
+        status: true,
+        message: "already deleted and you can not update",
+      });
     }
 
     let updateBook = await BookModel.findByIdAndUpdate(
@@ -284,6 +313,11 @@ const deleteById = async function (req, res) {
         .send({ status: false, msg: "please provide bookid" });
     }
 
+    let checkAl = await BookModel.find({ _id: bookId, isDeleted: true });
+    if (checkAl.length > 0) {
+      return res.status(200).send({ status: true, message: "already deleted" });
+    }
+
     let checkBook = await BookModel.findOne({ _id: bookId, isDeleted: false });
 
     if (!checkBook) {
@@ -296,7 +330,16 @@ const deleteById = async function (req, res) {
       { new: true }
     );
 
-    res.status(200).send({ status: true, data: deleted });
+    let deleteReview = await Review.updateMany(
+      { bookId: bookId, isDeleted: false },
+      { isDeleted: true },
+      { new: true }
+    );
+    return res
+      .status(200)
+      .send({ status: false, message: "Book and Reviews are Deleted" });
+
+    // res.status(200).send({ status: true, data: deleted });
   } catch (err) {
     return res.status(500).send({ status: false, msg: err.message });
   }
