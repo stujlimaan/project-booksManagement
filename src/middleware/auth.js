@@ -13,26 +13,26 @@ const authentication = function (req, res, next) {
     }
 
     let decodeToken = jwt.verify(token, "tujlimaan");
-    let currentDate = Date.now();
-    var time = moment(currentDate).format("DD-MM-YYYY h:mm:ss");
-    let expired = decodeToken.exp * 1000;
-    var expiredtime = moment(expired).format("DD-MM-YYYY h:mm:ss");
-    var iat = decodeToken.iat;
-    var expirediat = moment(iat).format("DD-MM-YYYY h:mm:ss");
+    // let currentDate = Date.now();
+    // var time = moment(currentDate).format("DD-MM-YYYY h:mm:ss");
+    // let expired = decodeToken.exp * 1000;
+    // var expiredtime = moment(expired).format("DD-MM-YYYY h:mm:ss");
+    // var iat = decodeToken.iat;
+    // var expirediat = moment(iat).format("DD-MM-YYYY h:mm:ss");
 
-    console.log(time, "=========", currentDate);
-    console.log(expiredtime, "============", expired);
-    console.log(expirediat);
+    // console.log(time, "=========", currentDate);
+    // console.log(expiredtime, "============", expired);
+    // console.log(expirediat);
 
-    if (currentDate > expired) {
-      return res
-        .status(401)
-        .send({
-          status: false,
-          message:
-            "Unauthorized! Access Token was expired!! Please login again.",
-        });
-    }
+    // if (currentDate > expired) {
+    //   return res
+    //     .status(401)
+    //     .send({
+    //       status: false,
+    //       message:
+    //         "Unauthorized! Access Token was expired!! Please login again.",
+    //     });
+    // }
     next();
   } catch (err) {
     return res

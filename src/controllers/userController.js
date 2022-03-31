@@ -9,48 +9,46 @@ const createUser = async function (req, res) {
     if (Object.keys(user).length == 0) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user details" });
+        .send({ status: false, message: "please provide user details" });
     }
     if (!validator.isValid(title)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user title" });
+        .send({ status: false, message: "please provide user title" });
     }
 
     if (!validator.isValidTitle(title)) {
-      return res
-        .status(400)
-        .send({
-          status: false,
-          msg: "please provide user enum mr mrs miss title",
-        });
+      return res.status(400).send({
+        status: false,
+        message: "please provide user enum mr mrs miss title",
+      });
     }
 
     if (!validator.isValid(name)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user name" });
+        .send({ status: false, message: "please provide user name" });
     }
     if (!validator.isValid(phone)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user phone" });
+        .send({ status: false, message: "please provide user phone" });
     }
     if (!/\d{10}/.test(phone)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide 10 digits number" });
+        .send({ status: false, message: "please provide 10 digits number" });
     }
     let uniPhone = await UserModel.find({ phone: phone });
     if (Object.keys(uniPhone).length > 0) {
       return res
         .status(400)
-        .send({ status: false, msg: `${phone} already exists number` });
+        .send({ status: false, message: `${phone} already exists number` });
     }
     if (!validator.isValid(email)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user email" });
+        .send({ status: false, message: "please provide user email" });
     }
     if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
       return res
@@ -61,31 +59,54 @@ const createUser = async function (req, res) {
     if (Object.keys(uniEmail).length > 0) {
       return res
         .status(400)
-        .send({ status: false, msg: `${email} already exists` });
+        .send({ status: false, message: `${email} already exists` });
     }
     if (!validator.isValid(password)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user password" });
+        .send({ status: false, message: "please provide user password" });
     }
     //password.length>=8 && password.length<=15
     if (!/^(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]{8,15}$/.test(password)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide 8 to 15 " });
+        .send({ status: false, message: "please provide 8 to 15 " });
     }
-    if (!validator.isValid(address)) {
-      return res
-        .status(400)
-        .send({ status: false, msg: "please provide user address" });
+    // if (!validator.isValid(address)) {
+    //   return res
+    //     .status(400)
+    //     .send({ status: false, message: "please provide user address" });
+    // }
+
+    if (address) {
+      if (typeof address != "object") {
+        return res
+          .status(400)
+          .send({ status: false, message: "address only will accept object." });
+      }
+      if (!address.street) {
+        return res
+          .status(400)
+          .send({ status: false, message: "Street not empty." });
+      }
+      if (!address.city) {
+        return res
+          .status(400)
+          .send({ status: false, message: "City not empty." });
+      }
+      if (!address.pincode) {
+        return res
+          .status(400)
+          .send({ status: false, message: "Pincode not empty." });
+      }
     }
 
     let userdata = await UserModel.create(user);
     res
       .status(201)
-      .send({ status: true, msg: "user successfully created", data: userdata });
+      .send({ status: true, message: "user successfully created", data: userdata });
   } catch (err) {
-    res.status(500).send({ status: false, msg: err.message });
+    res.status(500).send({ status: false, message: err.message });
   }
 };
 
@@ -96,18 +117,18 @@ const login = async function (req, res) {
     if (Object.keys(data).length == 0) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide details" });
+        .send({ status: false, message: "please provide details" });
     }
     if (!validator.isValid(email)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user email" });
+        .send({ status: false, message: "please provide user email" });
     }
 
     if (!validator.isValid(password)) {
       return res
         .status(400)
-        .send({ status: false, msg: "please provide user password" });
+        .send({ status: false, message: "please provide user password" });
     }
     let checkUser = await UserModel.findOne({
       email: email,
@@ -116,23 +137,23 @@ const login = async function (req, res) {
     if (!checkUser) {
       return res
         .status(404)
-        .send({ status: false, msg: "Invalid email password" });
+        .send({ status: false, message: "Invalid email password" });
     }
     let id = checkUser._id;
     let token = jwt.sign(
       {
         userId: id,
         iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + (30 * 60)
+        exp: Math.floor(Date.now() / 1000) + 30 * 60,
       },
       "tujlimaan"
     );
     res.setHeader("x-api-token", token);
     res
       .status(200)
-      .send({ status: true, msg: "users successfully login", data: token });
+      .send({ status: true, message: "users successfully login", data: token });
   } catch (err) {
-    return res.status(500).send({ status: false, msg: err.message });
+    return res.status(500).send({ status: false, message: err.message });
   }
 };
 

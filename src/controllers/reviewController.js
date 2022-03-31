@@ -44,14 +44,30 @@ const createReview = async function (req, res) {
         .status(400)
         .send({ status: false, message: "give rating 1 t0 5 " });
     }
-    let reviewData = await ReviewModel.create(data);
-    res.status(201).send({
-      status: true,
-      message: "Review succussfully done",
-      data: reviewData,
-    });
+
+
+     //checking if book exists and updating the review count
+     let bookReviewCount= await BookModel.findOneAndUpdate(
+      {_id:bookId, isDeleted:false}, {$inc: { reviews: 1} }, {new:true}).select({ISBN:0, __v:0});
+  if(!bookReviewCount) return res.status(404).send({status:false, message:"No such book exists"})
+
+  //adding review
+  let reviewData=await ReviewModel.create(review);
+
+  let totalReviews= await ReviewModel.find({bookId:bookId, isDeleted:false}).select({_id:1, bookId:1,reviewedBy:1,reviewedAt:1,rating:1,review:1})
+  
+  let booksData= JSON.parse(JSON.stringify(bookReviewCount));
+  booksData.reviewsData=totalReviews;    
+  return res.status(201).send({status:true, message:'Books List', data: booksData}) 
+
+    // let reviewData = await ReviewModel.create(data);
+    // res.status(201).send({
+    //   status: true,
+    //   message: "Review succussfully done",
+    //   data: reviewData,
+    // });
   } catch (err) {
-    return res.status(500).send({ status: false, msg: err.message });
+    return res.status(500).send({ status: false, message: err.message });
   }
 };
 
@@ -73,6 +89,12 @@ const updateReview = async function (req, res) {
         .status(400)
         .send({ status: false, message: "please provide reviewId" });
     }
+    if (rating > 6 || rating < 0) {
+      return res
+        .status(400)
+        .send({ status: false, message: "give rating 1 t0 5 " });
+    }
+
 
     let checkDeletedOrNot=await ReviewModel.find({_id:reviewId,isDeleted:true})
     if(checkDeletedOrNot.length>0){
@@ -89,7 +111,7 @@ const updateReview = async function (req, res) {
       .status(200)
       .send({ status: true, message: "review updated", data: updateReview });
   } catch (err) {
-    return res.status(500).send({ status: false, msg: err.message });
+    return res.status(500).send({ status: false, message: err.message });
   }
 };
 
@@ -127,11 +149,18 @@ const deleteReview = async function (req, res) {
       { new: true }
     );
     console.log(deleteReview);
-    res
-      .status(200)
-      .send({ status: true, message: "deleted", data: deleteReview });
+
+    //decreasing review count for the book
+    let bookReviewCount= await BookModel.findOneAndUpdate(
+      {_id:bookId, isDeleted:false}, {$inc: { reviews: -1} }, {new:true});
+
+  return res.status(200).send({status:false, message:'Review Deleted'})
+
+    // res
+    //   .status(200)
+    //   .send({ status: true, message: "deleted", data: deleteReview });
   } catch (err) {
-    return res.status(500).send({ status: false, msg: err.message });
+    return res.status(500).send({ status: false, message: err.message });
   }
 };
 
