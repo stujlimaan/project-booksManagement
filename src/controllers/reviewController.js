@@ -116,6 +116,11 @@ const deleteReview = async function (req, res) {
         .send({ status: false, message: "please provide valid bookId" });
     }
 
+    let checkDeletedOrNot=await ReviewModel.find({_id:reviewId,isDeleted:true})
+    if(checkDeletedOrNot.length>0){
+      return res.status(200).send({status:true,message:"already deleted"})
+    }
+
     let deleteReview = await ReviewModel.findByIdAndUpdate(
       { _id: reviewId },
       { isDeleted: true, deletedAt: Date.now() },
