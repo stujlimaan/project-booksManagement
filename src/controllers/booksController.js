@@ -16,11 +16,18 @@ const createBook = async function (req, res) {
     const { title, excerpt, ISBN, category, subcategory, releasedAt, userId } =
       data;
 
+      //authentication
+      if(userId!=req.userId){
+        return res.status(403).send({status:false,message:"unauthorized user"})
+      }
+
+      //validations
     if (!title) {
       return res
         .status(400)
         .send({ status: false, message: "please provide book title" });
     }
+//search title in database to check title is already used or not to maintain uniqueness 
 
     let checkTitle = await BookModel.findOne({ title: title });
 
@@ -41,7 +48,7 @@ const createBook = async function (req, res) {
         .status(400)
         .send({ status: false, message: "please provide user ISBN " });
     }
-
+//search isbn in database to check isbn is already used or not to maintain uniqueness 
     let checkISBN = await BookModel.findOne({ ISBN: ISBN });
 
     if (checkISBN) {
@@ -72,6 +79,7 @@ const createBook = async function (req, res) {
         .status(400)
         .send({ status: false, message: "please provide address" });
     }
+    //check date format
     let validity = moment(releasedAt, "YYYY-MM-DD", true).isValid();
     if (!validity)
       return res
@@ -91,7 +99,7 @@ const createBook = async function (req, res) {
         .status(400)
         .send({ status: false, message: "please provide userId" });
     }
-
+//check userId exists or not (verifying user if not varified then we can not create book in our database)
     let checkUserId = await User.findById(userId);
 
     if (!checkUserId) {
@@ -102,6 +110,7 @@ const createBook = async function (req, res) {
     if (subcategory) {
       if (Array.isArray(subcategory)) {
         bookData["subcategory"] = [...subcategory];
+        subcategory.push(subcategory)
       }
       if (Object.prototype.toString.call(subcategory) === ["object string"]) {
         bookData["subcategory"] = [subcategory];
@@ -125,6 +134,10 @@ const getBook = async function (req, res) {
     let obj = {};
     obj.isDeleted = false;
 
+    if(userId && userId.length!=24){
+      return res.status(400).send({status:false,message:"provide valid user id 24"})
+    }
+   
     if (userId || category || subcategory || obj) {
       if (userId) {
         obj["userId"] = userId;
@@ -141,7 +154,16 @@ const getBook = async function (req, res) {
         const subArr=subcategory.trim().split(',').map(sub=>sub.trim());
         obj['subcategory']={$all:subArr}
     }
-      console.log(obj);
+
+    //authorization
+    // let checkUser=await BookModel.findOne(obj)
+    // if(!checkUser){
+    //   return res.status(404).send({status:false,message:"not found"})
+    // }
+    // if(checkUser.userId !=req.userId){
+    //   return res.status(403).send({status:false,message:"unauthorized user"})
+    // }
+      // console.log(obj);
       const filterQ = await BookModel.find(obj)
         .select({
           _id: 1,
@@ -153,8 +175,8 @@ const getBook = async function (req, res) {
           reviews: 1,
         })
         .sort({ title: 1 });
-      console.log(filterQ);
-
+      // console.log(filterQ);
+  let count=filterQ.length
       if (filterQ.length == 0) {
         res
           .status(404)
@@ -162,7 +184,7 @@ const getBook = async function (req, res) {
       } else {
         res
           .status(200)
-          .send({ status: true, message: "Books list ", data: filterQ });
+          .send({ status: true, message: `${count} Books list `, data: filterQ });
       }
     }
   } catch (err) {
@@ -177,7 +199,7 @@ const getBookById = async function (req, res) {
   try {
     let bookId = req.params.bookId;
 
-    if (!bookId) {
+    if (!bookId && bookId.length!=24) {
       return res
         .status(400)
         .send({ status: false, message: "please provide bookId" });
@@ -186,23 +208,29 @@ const getBookById = async function (req, res) {
     
     let checkBookById = await BookModel.findById({ _id: bookId });
 
-    if (!checkBookById) {
+    if (!checkBookById ) {
       return res
         .status(400)
         .send({ status: false, message: "please provide valid book id" });
-    }
-
-    let bookDeleted = await BookModel.find({ _id: bookId, isDeleted: true });
-    if (bookDeleted.length > 0) {
-      return res
-        .status(200)
-        .send({ status: true, message: "already deleted " });
     }
 
     let bookDetails = await BookModel.findOne({
       _id: bookId,
       isDeleted: false,
     });
+
+    // if(bookDetails.userId!=req.userId){
+    //   return res.status(403).send({status:false,message:"unauthorized user"})
+    // }
+
+    let bookDeleted = await BookModel.find({ _id: bookId, isDeleted: true });
+    if (bookDeleted.length > 0) {
+      return res
+        .status(400)
+        .send({ status: false, message: "already deleted " });
+    }
+
+    
 
     const ReviewsData = await Review.find({ bookId: bookId, isDeleted: false })
       .select({
@@ -234,6 +262,11 @@ const updateBook = async function (req, res) {
   try {
     let bookId = req.params.bookId;
     let { title, excerpt, releasedAt, ISBN } = req.body;
+    let data=req.body
+
+    if(!data){
+      return res.status(400).send({status:false,message:"provide some data in body"})
+    }
 
     if (!bookId) {
       return res
@@ -241,10 +274,19 @@ const updateBook = async function (req, res) {
         .send({ status: false, message: "please provide bookid" });
     }
 
+    if(bookId.length!=24){
+      return res.status(400).send({status:false,message:"invalid bookId"})
+    }
     let checkId = await BookModel.findOne({ _id: bookId });
+
     if (!checkId) {
       return res.status(404).send({ status: false, message: "not book found" });
     }
+    
+    if(checkId.userId!=req.userId){
+      return res.status(401).send({status:false,message:"unauthorized user"})
+    }
+    
 
     if (!title) {
       return res
@@ -286,14 +328,14 @@ const updateBook = async function (req, res) {
 
     let checkDeleted = await BookModel.find({ _id: bookId, isDeleted: true });
     if (checkDeleted.length > 0) {
-      return res.status(200).send({
-        status: true,
+      return res.status(400).send({
+        status: false,
         message: "already deleted and you can not update",
       });
     }
 
-    let updateBook = await BookModel.findByIdAndUpdate(
-      { _id: bookId },
+    let updateBook = await BookModel.findOneAndUpdate(
+      { _id: bookId ,isDeleted:false},
       { title: title, excerpt: excerpt, releasedAt: releasedAt, ISBN: ISBN },
       { new: true }
     );
@@ -319,6 +361,18 @@ const deleteById = async function (req, res) {
         .send({ status: false, message: "please provide bookid" });
     }
 
+    if(bookId.length !=24){
+      return res.status(400).send({status:false,message:"invalid bookid"})
+    }
+
+    let checkUser=await BookModel.findById(bookId)
+    if(!checkUser){
+      return res.status(404).send({status:false,message:"no book found"})
+    }
+    if(checkUser.userId!=req.userId){
+      return res.status(401).send({status:false,message:"unauthorized user"})
+    }
+
     let checkAl = await BookModel.find({ _id: bookId, isDeleted: true });
     if (checkAl.length > 0) {
       return res.status(200).send({ status: true, message: "already deleted" });
@@ -330,20 +384,20 @@ const deleteById = async function (req, res) {
       return res.status(404).send({ status: false, message: "not exists" });
     }
 
-    let deleted = await BookModel.findByIdAndUpdate(
-      { _id: bookId },
+    let deleted = await BookModel.findOneAndUpdate(
+      { _id: bookId,isDeleted:false },
       { isDeleted: true, deletedAt: Date.now() },
       { new: true }
     );
 
     let deleteReview = await Review.updateMany(
       { bookId: bookId, isDeleted: false },
-      { isDeleted: true },
+      { isDeleted: true,deletedAt:new Date() },
       { new: true }
     );
     return res
       .status(200)
-      .send({ status: false, message: "Book and Reviews are Deleted" });
+      .send({ status: false, message: "Book and Reviews are Deleted",data:deleted });
 
     // res.status(200).send({ status: true, data: deleted });
   } catch (err) {

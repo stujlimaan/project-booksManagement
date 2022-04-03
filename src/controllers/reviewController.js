@@ -46,26 +46,16 @@ const createReview = async function (req, res) {
     }
 
 
-     //checking if book exists and updating the review count
-     let bookReviewCount= await BookModel.findOneAndUpdate(
-      {_id:bookId, isDeleted:false}, {$inc: { reviews: 1} }, {new:true}).select({ISBN:0, __v:0});
-  if(!bookReviewCount) return res.status(404).send({status:false, message:"No such book exists"})
-
-  //adding review
-  let reviewData=await ReviewModel.create(review);
-
-  let totalReviews= await ReviewModel.find({bookId:bookId, isDeleted:false}).select({_id:1, bookId:1,reviewedBy:1,reviewedAt:1,rating:1,review:1})
-  
-  let booksData= JSON.parse(JSON.stringify(bookReviewCount));
-  booksData.reviewsData=totalReviews;    
-  return res.status(201).send({status:true, message:'Books List', data: booksData}) 
-
-    // let reviewData = await ReviewModel.create(data);
-    // res.status(201).send({
-    //   status: true,
-    //   message: "Review succussfully done",
-    //   data: reviewData,
-    // });
+    if(checkBookId.isDeleted==true){
+      return res.status(400).send({status:false,message:"Already book deleted then you can not add"})
+    }
+    
+    let reviewData=await ReviewModel.create(data)
+    if(reviewData){
+      await BookModel.findOneAndUpdate({_id:bookId},{$inc:{reviews:1}})
+    }
+    let RD=await ReviewModel.findOne({_id:reviewData._id}).select({_v:0,createdAt:0,updatedAt:0,isDeleted:0})
+    res.status(201).send({status:true,message:"review added",data:RD})
   } catch (err) {
     return res.status(500).send({ status: false, message: err.message });
   }
@@ -94,22 +84,34 @@ const updateReview = async function (req, res) {
         .status(400)
         .send({ status: false, message: "give rating 1 t0 5 " });
     }
+    
+    let checkBookId=await BookModel.findById(bookId)
+    if(!checkBookId){
+      return res.status(404).send({status:false,message:"not found bookId"})
+    }
 
+    let checkReviewId=await ReviewModel.findById(reviewId)
+    if(!checkReviewId){
+      return res.status(404).send({status:false,message:"not found reviewId"})
+
+    }
 
     let checkDeletedOrNot=await ReviewModel.find({_id:reviewId,isDeleted:true})
     if(checkDeletedOrNot.length>0){
       return res.status(200).send({status:true,message:"already deleted"})
     }
 
-    let updateReview = await ReviewModel.findByIdAndUpdate(
-      { _id: reviewId, bookId: bookId },
+    let updateReview = await ReviewModel.findOneAndUpdate(
+      { _id: reviewId,isDeleted:false},
       { review: review, rating: rating, reviewedBy: reviewedBy },
       { new: true }
     );
-    console.log(updateReview);
+    // console.log(updateReview);
+    let UPDR=checkBookId.toObject()
+    UPDR['updatedReview']=updateReview
     res
       .status(200)
-      .send({ status: true, message: "review updated", data: updateReview });
+      .send({ status: true, message: "review updated", data: UPDR });
   } catch (err) {
     return res.status(500).send({ status: false, message: err.message });
   }
@@ -143,12 +145,15 @@ const deleteReview = async function (req, res) {
       return res.status(200).send({status:true,message:"already deleted"})
     }
 
-    let deleteReview = await ReviewModel.findByIdAndUpdate(
-      { _id: reviewId },
+    let deleteReview = await ReviewModel.findOneAndUpdate(
+      { _id: reviewId ,isDeleted:false},
       { isDeleted: true, deletedAt: Date.now() },
       { new: true }
     );
-    console.log(deleteReview);
+    // console.log(deleteReview);
+    // if(deleteReview){
+    //   await BookModel.findOneAndUpdate({_id:bookId},{$inc:{reviews:-1}})
+    // }
 
     //decreasing review count for the book
     let bookReviewCount= await BookModel.findOneAndUpdate(
@@ -156,9 +161,6 @@ const deleteReview = async function (req, res) {
 
   return res.status(200).send({status:false, message:'Review Deleted'})
 
-    // res
-    //   .status(200)
-    //   .send({ status: true, message: "deleted", data: deleteReview });
   } catch (err) {
     return res.status(500).send({ status: false, message: err.message });
   }

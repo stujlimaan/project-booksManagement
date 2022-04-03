@@ -5,6 +5,7 @@ const route=require("./routes/route")
 
 const app= express()
 
+//middleware parser
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended:true}))
 

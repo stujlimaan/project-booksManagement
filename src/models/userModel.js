@@ -7,15 +7,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: "user title is required",
       enum: ["Mr", "Mrs", "Miss"],
+      trim:true
     },
     name: {
       type: String,
       required: "user name is required",
+      trim:true
     },
     phone: {
       type: String,
       required: "user phone is required",
       //   unique:true,
+      trim:true,
 
       validate: {
         validator: function (v) {
